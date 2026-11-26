@@ -7,15 +7,6 @@ class RobotSimulation:
     e0 = np.array([300, 300, 0])
 
     def rotate(
-            origin : tuple[int],
-            length : int,
-            theta : int # degrees
-        ) -> tuple[int]:
-        dx = math.cos(theta * math.pi / 180) * length
-        dy = math.sin(theta * math.pi / 180) * length
-        return round(origin[0] + dx), round(origin[1] - dy)
-
-    def rotate_(
             e : np.ndarray, # Actuator end-effector position n=3
             l : int, # Rotated actuator length
             t : int, # Relative rotation (degrees)
@@ -30,10 +21,9 @@ class RobotSimulation:
         ) -> np.ndarray: # endpoint position matrix (n=3, m=3)
 
         r = np.array([[1,0,0],[1,1,0],[1,1,1]]) @ t
-        e0 = RobotSimulation.e0
-        e1 = RobotSimulation.rotate_(e0, RobotSimulation.LENGTH[0], r[0])
-        e2 = RobotSimulation.rotate_(e1, RobotSimulation.LENGTH[1], r[1])
-        e3 = RobotSimulation.rotate_(e2, RobotSimulation.LENGTH[2], r[2])
+        e1 = RobotSimulation.rotate(RobotSimulation.e0, RobotSimulation.LENGTH[0], r[0])
+        e2 = RobotSimulation.rotate(e1, RobotSimulation.LENGTH[1], r[1])
+        e3 = RobotSimulation.rotate(e2, RobotSimulation.LENGTH[2], r[2])
 
         return np.array([e1, e2, e3]).transpose()
 
@@ -77,9 +67,9 @@ class RobotSimulation:
         self.animate()
     
     def animate(self):
-        self.canvas.coords(self.a1, RobotSimulation.e0[0], RobotSimulation.e0[1],   self.e[0,0], self.e[1,0])
-        self.canvas.coords(self.a2, self.e[0,0], self.e[1,0], self.e[0,1], self.e[1,1])
-        self.canvas.coords(self.a3, self.e[0,1], self.e[1,1], self.e[0,2], self.e[1,2])
+        self.canvas.coords(self.a1, RobotSimulation.e0[0],  RobotSimulation.e0[1],  self.e[0,0],    self.e[1,0])
+        self.canvas.coords(self.a2, self.e[0,0],            self.e[1,0],            self.e[0,1],    self.e[1,1])
+        self.canvas.coords(self.a3, self.e[0,1],            self.e[1,1],            self.e[0,2],    self.e[1,2])
         self.root.after(16, self.animate)
 
     def t0_update(self, val):
