@@ -11,54 +11,64 @@ class RobotSimulation:
         dy = math.sin(theta * math.pi / 180) * length
         return round(origin[0] + dx), round(origin[1] - dy)
 
-    ORIGIN = (150, 150)
-    LENGTH = (60, 40, 18 * 4)
-    THETAS = (45, 0, -45)
+    LENGTH = (160, 120, 100)
 
     def __init__(self, root):
         self.root = root
         self.root.title("Robot Simulator 3 DOF")
 
         # Setup Canvas
-        self.canvas = tk.Canvas(root, width=400, height=300, bg="black")
+        self.canvas = tk.Canvas(root, width=800, height=300, bg="black")
         self.canvas.pack(fill="both", expand=True)
 
-        # Positions and Actuators
-        self.p1 = RobotSimulation.rotate(
-            self.ORIGIN,
-            self.LENGTH[0],
-            self.THETAS[0])
-        self.a1 = self.canvas.create_line(
-            self.ORIGIN[0],
-            self.ORIGIN[1],
-            self.ORIGIN[0],
-            self.ORIGIN[1],
-            fill="red", width=3
-        )
+        # Actuators
+        self.a1 = self.canvas.create_line(0,0,0,0,fill="red", width=6)
+        self.a2 = self.canvas.create_line(0,0,0,0,fill="green", width=6)
+        self.a3 = self.canvas.create_line(0,0,0,0,fill="blue", width=6)
 
-        # Actuators Angle Setpoints (Theta)
-        s = tk.Scale(
-            root,
-            from_=180,              # Minimum value (note the trailing underscore)
-            to=-180,               # Maximum value
-            orient=tk.HORIZONTAL, # tk.HORIZONTAL or tk.VERTICAL
-            length=200,           # Width/height in pixels
-            tickinterval=90,      # Displays numbers along the track
-            resolution=1,         # Step increment (use 0.1 for decimals)
-            command=self.s1_update
-        )
-        s.set(self.THETAS[0])            # Set initial starting position
-        s.pack(pady=10)
+        # Origin and Initial Actuator Endpoint Position
+        self.p0 = (300, 300)
+        self.p1 = (0, 0)
+        self.p2 = (0, 0)
+        self.p3 = (0, 0)
+
+        # Initial Actuator Angles
+        self.t1 = 45
+        self.t2 = -45
+        self.t3 = -45
+
+        # Actuators Angle Sliders
+        def init_slider(initial, command):
+            s = tk.Scale(
+                root,
+                from_=180,              # Minimum value (note the trailing underscore)
+                to=-180,               # Maximum value
+                orient=tk.HORIZONTAL, # tk.HORIZONTAL or tk.VERTICAL
+                length=200,           # Width/height in pixels
+                tickinterval=90,      # Displays numbers along the track
+                resolution=1,         # Step increment (use 0.1 for decimals)
+                command=command
+            )
+            s.set(initial)            # Set initial starting position
+            s.pack(pady=10)
+        init_slider(self.t1, self.t1_update)
+        init_slider(self.t2, self.t2_update)
+        init_slider(self.t3, self.t3_update)
 
         self.animate()
     
     def animate(self):
-        # self.canvas.move(self.a1, 0, 0) # this forces the window to render
-        self.canvas.coords(self.a1, self.ORIGIN[0], self.ORIGIN[1], self.p1[0], self.p1[1])
+        self.p1 = RobotSimulation.rotate(self.p0, self.LENGTH[0], self.t1)
+        self.p2 = RobotSimulation.rotate(self.p1, self.LENGTH[1], self.t1 + self.t2)
+        self.p3 = RobotSimulation.rotate(self.p2, self.LENGTH[2], self.t1 + self.t2 + self.t3)
+        self.canvas.coords(self.a1, self.p0[0], self.p0[1], self.p1[0], self.p1[1])
+        self.canvas.coords(self.a2, self.p1[0], self.p1[1], self.p2[0], self.p2[1])
+        self.canvas.coords(self.a3, self.p2[0], self.p2[1], self.p3[0], self.p3[1])
         self.root.after(16, self.animate)
 
-    def s1_update(self,val):
-        print(val)
+    def t1_update(self, val): self.t1 = int(val)
+    def t2_update(self, val): self.t2 = int(val)
+    def t3_update(self, val): self.t3 = int(val)
 
 if __name__ == "__main__":
     root = tk.Tk()
