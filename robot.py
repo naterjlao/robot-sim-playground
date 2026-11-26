@@ -36,15 +36,18 @@ class RobotSimulation:
         self.canvas.pack(fill="both", expand=True)
 
         # Initial Actuator Angles
-        self.t = np.array([45,-45,-45])
+        self.t = np.array([45.0,-45.0,-45.0])
 
-        # Initial Actuator Endpoint Position
+        # Initial Actuator Endpoint/Setpoint Positions
         self.e = RobotSimulation.fk2(self.t)
+        self.g = self.e[:,2]
 
         # Actuators
         self.a1 = self.canvas.create_line(0,0,0,0,width=6,fill="red")
         self.a2 = self.canvas.create_line(0,0,0,0,width=6,fill="green")
         self.a3 = self.canvas.create_line(0,0,0,0,width=6,fill="blue")
+
+        self.canvas.bind("<Button-1>", self.on_click)
 
         # Actuators Angle Sliders
         def init_slider(initial, command):
@@ -67,6 +70,13 @@ class RobotSimulation:
         self.animate()
     
     def animate(self):
+        J = RobotSimulation.jacobian(self.e, self.t)
+        J_inv = np.linalg.pinv(J)
+        de = self.g - self.e[:,2]
+        dt = J_inv @ de
+        self.t = self.t + 0.1 * dt
+        self.e = RobotSimulation.fk2(self.t)
+
         self.canvas.coords(self.a1, RobotSimulation.e0[0],  RobotSimulation.e0[1],  self.e[0,0],    self.e[1,0])
         self.canvas.coords(self.a2, self.e[0,0],            self.e[1,0],            self.e[0,1],    self.e[1,1])
         self.canvas.coords(self.a3, self.e[0,1],            self.e[1,1],            self.e[0,2],    self.e[1,2])
@@ -83,6 +93,24 @@ class RobotSimulation:
     def t2_update(self, val):
         self.t = np.array([0, 0, int(val)]) + np.array([[1,0,0], [0,1,0], [0,0,0]]) @ self.t
         self.e = RobotSimulation.fk2(self.t)
+
+    def jacobian(e, t, dt=0.5):
+        de = RobotSimulation.fk2(t + np.array([1,1,1]) * dt) - e
+        return de / dt
+
+    def on_click(self, event):
+        self.g = np.array([int(event.x), int(event.y), 0])
+        print(f"{self.g=}")
+        # J = RobotSimulation.jacobian(self.e, self.t)
+        # J_inv = np.linalg.pinv(J)
+
+        # setpoint = np.array([int(event.x), int(event.y), 0])
+
+        # dt = J_inv @ (self.e[:,2] - setpoint)
+        # print(dt)
+        # self.t += dt.astype(int)
+        # self.e = RobotSimulation.fk2(self.t)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
