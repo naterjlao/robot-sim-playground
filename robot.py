@@ -4,52 +4,52 @@ import numpy as np
 
 class RobotSimulation:
     def rotate(
-            e : np.ndarray, # Actuator end-effector position n=3
-            l : int, # Rotated actuator length
-            t : int, # Relative rotation (degrees)
+            e : np.ndarray, # Actuator Origin Position Vector
+            l : int, # Actuator Length
+            t : int, # Actuator Relative Rotation (Angular Degrees)
         ) -> np.ndarray: # n = 3
 
-        radians = t * math.pi / 180
-        r = np.array([math.cos(radians), -math.sin(radians), 0]) # Unit vector rotation from theta (t).
-        return e + r*l
+        radians = t * math.pi / 180 # Covert to radians
+        r = np.array([math.cos(radians), -math.sin(radians), 0]) # Unit vector rotation of theta.
+        return e + r*l # Scale the rotation unit vector and displace by origin position vector.
 
-    def fk2(
+    def forward_kinematics(
             self,
-            t : np.ndarray # theta (t) vector (n=3)
-        ) -> np.ndarray: # endpoint position matrix (n=3, m=3)
-
-        r = self.R @ t
-        p = self.e0
+            t : np.ndarray  # Local Actuator Rotation Vector (theta, Angular Degrees)
+        ) -> np.ndarray:    # Endpoint Position Matrix: (3, n)
+        """Forward Kinematics Evaluator"""
+        r = self.R @ t  # Compute rotation angles in respect to the origin.
+        p = self.e0     # Starting initial position. Updated to the end of actuator per rotation transform
         e = []
         for idx in range(self.n):
+            # Rotate each actuator starting from the origin to the end effector.
             p = RobotSimulation.rotate(p, self.lengths[idx], r[idx])
             e += [p]
-
         return np.array(e).transpose()
 
     def __init__(self, root : tk.Tk, lengths : list[int] = [160, 120, 100, 100]):
-        self.root = root
-        self.n = len(lengths)
-        self.lengths = lengths
-        self.root.title(f"Robot Simulator {self.n} DOF")
+        self.root       = root
+        self.lengths    = lengths
+        self.n          = len(self.lengths)
 
-        # Setup Canvas
+        # Setup GUI
+        self.root.title(f"Robot Simulator {self.n} DOF")
         self.canvas = tk.Canvas(root, width=800, height=300, bg="black")
         self.canvas.pack(fill="both", expand=True)
 
         # Initial Actuator Angles
         self.t = np.zeros(self.n)
-        self.dt = 0.5                   # Jacobian Estimator Delta Theta
-        self.R = np.tri(self.n, self.n) # Rotational Sum Matrix
+        self.dt = 0.5                   # Initial Jacobian Estimator Theta Delta
+        self.R = np.tri(self.n, self.n) # Rotational Sum Matrix used for forward_kinematics().
 
         # Initial Actuator Endpoint/Setpoint Positions
-        self.e0 = np.array([300, 300, 0]) # Origin Position
-        self.e = self.fk2(self.t)
-        self.g = self.e[:,self.n - 1]
-        self.alpha = 0.5
-        self.canvas.bind("<Motion>", self.g_update)
+        self.e0 = np.array([300, 300, 0])           # Set robot origin position.
+        self.e = self.forward_kinematics(self.t)    # Calculate initial actuator pose.
+        self.g = self.e[:,self.n - 1]               # Set initial end effector setpoint.
+        self.alpha = 0.5                            # Initial alpha constant for inverse_kinematics().
+        self.canvas.bind("<Motion>", self.g_update) # Interactive GUI - track mouse positions.
 
-        # Actuators
+        # Create Actuator Lines
         COLOR_PATTERN = ["red", "green", "blue", "orange"]
         self.a = []
         for idx in range(self.n):
@@ -72,19 +72,19 @@ class RobotSimulation:
         # init_slider(180, -180, 90, 1, self.t[0], self.t0_update)
         # init_slider(180, -180, 90, 1, self.t[1], self.t1_update)
         # init_slider(180, -180, 90, 1, self.t[2], self.t2_update)
-        init_slider(0.001, 10, 1, 0.001, self.dt, self.dt_update)
+        init_slider(0.5, 90, 10, 0.5, self.dt, self.dt_update)
         init_slider(0.001, 3, 1, 0.001, self.alpha, self.alpha_update)
 
         self.animate()
     
     def animate(self):
-        # Inverse Kinematics
-        J = self.jacobian(self.e, self.t, dt=self.dt)
-        J_inv = np.linalg.pinv(J)
-        de = self.g - self.e[:,self.n - 1]
-        dt = J_inv @ de
-        self.t = self.t + self.alpha * dt
-        self.e = self.fk2(self.t)
+        # Inverse Kinematics TODO move to function
+        J = self.jacobian(self.e, self.t, dt=self.dt)   # Compute (estimate) the Jacobian.
+        J_inv = np.linalg.pinv(J)                       # Compute Jacobian pseudo-inverse.
+        de = self.g - self.e[:,self.n - 1]              # Compute position delta between current end effector position and setpoint.
+        dt = J_inv @ de                                 # Compute actuator angles delta.
+        self.t = self.t + self.alpha * dt               # Add the actuator angles delta to current angles (with alpha step-size).
+        self.e = self.forward_kinematics(self.t)        # Update the pose of the robot.
 
         # Update Actuator Positions
         px = self.e0[0]
@@ -98,15 +98,15 @@ class RobotSimulation:
 
     # def t0_update(self, val):
     #     self.t = np.array([int(val), 0, 0, 0]) + np.array([[0,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]]) @ self.t
-    #     self.e = self.fk2(self.t)
+    #     self.e = self.forward_kinematics(self.t)
 
     # def t1_update(self, val):
     #     self.t = np.array([0, int(val), 0, 0]) + np.array([[1,0,0,0], [0,0,0,0], [0,0,1,0], [0,0,0,1]]) @ self.t
-    #     self.e = self.fk2(self.t)
+    #     self.e = self.forward_kinematics(self.t)
 
     # def t2_update(self, val):
     #     self.t = np.array([0, 0, int(val), 0]) + np.array([[1,0,0,0], [0,1,0,0], [0,0,0,0], [0,0,0,1]]) @ self.t
-    #     self.e = self.fk2(self.t)
+    #     self.e = self.forward_kinematics(self.t)
 
     def dt_update(self, val):
         self.dt = float(val)
@@ -115,7 +115,20 @@ class RobotSimulation:
         self.alpha = float(val)
 
     def jacobian(self, e, t, dt=0.5):
-        de = self.fk2(t + np.ones(self.n) * dt) - e
+        """Jacobian Estimator
+        
+        Computes the jacobian matrix (de/d_{theta}) using numerical estimation.
+        This method "nudges" the current angular values of the actuators to compute
+        a delta in the resulting position.
+
+        e: current actuator position matrix
+        t: current actuator angle values vector
+        dt: "nudge" value applied to all angle values
+
+        Returns: the jacobian matrix representing the linear rate of change
+        of the actuator positions based on angular values.
+        """
+        de = self.forward_kinematics(t + np.ones(self.n) * dt) - e
         return de / dt
 
     def g_update(self, event):
@@ -123,12 +136,7 @@ class RobotSimulation:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    app = RobotSimulation(root)
+    # To setup an arbitrary number of actuators replace above with this line:
     # app = RobotSimulation(root, lengths=[160, 120, 100, 100, 100, 100, 50])
-    # app = RobotSimulation(root, lengths=[40]*20)
-    # lengths = []
-    # for idx in range(10):
-    #     lengths = [(idx + 1) * 40] + lengths
-    lengths = [(idx + 1) * 25 * (1 + math.sqrt(5)) / 2  for idx in range(5)][::-1]
-    print(lengths)
-    app = RobotSimulation(root, lengths=lengths)
     root.mainloop()
