@@ -4,6 +4,7 @@ import numpy as np
 
 class RobotSimulation:
     LENGTH = [160, 120, 100, 100]
+    ROTATION_SUM_MATRIX = np.array([[1,0,0,0],[1,1,0,0],[1,1,1,0],[1,1,1,1]])
     e0 = np.array([300, 300, 0])
 
     def rotate(
@@ -20,7 +21,7 @@ class RobotSimulation:
             t : np.ndarray # theta (t) vector (n=3)
         ) -> np.ndarray: # endpoint position matrix (n=3, m=3)
 
-        r = np.array([[1,0,0,0],[1,1,0,0],[1,1,1,0],[1,1,1,1]]) @ t
+        r = RobotSimulation.ROTATION_SUM_MATRIX @ t
         e1 = RobotSimulation.rotate(RobotSimulation.e0, RobotSimulation.LENGTH[0], r[0])
         e2 = RobotSimulation.rotate(e1, RobotSimulation.LENGTH[1], r[1])
         e3 = RobotSimulation.rotate(e2, RobotSimulation.LENGTH[2], r[2])
@@ -109,7 +110,7 @@ class RobotSimulation:
         self.alpha = float(val)
 
     def jacobian(e, t, dt=0.5):
-        de = RobotSimulation.fk2(t + np.array([1,1,1,1]) * dt) - e
+        de = RobotSimulation.fk2(t + np.ones(4) * dt) - e
         return de / dt
 
     def on_click(self, event):
