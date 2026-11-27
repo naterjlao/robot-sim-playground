@@ -3,10 +3,6 @@ import tkinter as tk
 import numpy as np
 
 class RobotSimulation:
-    LENGTH = [160, 120, 100, 100]
-    ROTATION_SUM_MATRIX = np.array([[1,0,0,0],[1,1,0,0],[1,1,1,0],[1,1,1,1]])
-    e0 = np.array([300, 300, 0])
-
     def rotate(
             e : np.ndarray, # Actuator end-effector position n=3
             l : int, # Rotated actuator length
@@ -18,33 +14,38 @@ class RobotSimulation:
         return e + r*l
 
     def fk2(
+            self,
             t : np.ndarray # theta (t) vector (n=3)
         ) -> np.ndarray: # endpoint position matrix (n=3, m=3)
 
-        r = RobotSimulation.ROTATION_SUM_MATRIX @ t
-        e1 = RobotSimulation.rotate(RobotSimulation.e0, RobotSimulation.LENGTH[0], r[0])
-        e2 = RobotSimulation.rotate(e1, RobotSimulation.LENGTH[1], r[1])
-        e3 = RobotSimulation.rotate(e2, RobotSimulation.LENGTH[2], r[2])
-        e4 = RobotSimulation.rotate(e3, RobotSimulation.LENGTH[3], r[3])
+        r = self.R @ t
+        e1 = RobotSimulation.rotate(self.e0, self.lengths[0], r[0])
+        e2 = RobotSimulation.rotate(e1, self.lengths[1], r[1])
+        e3 = RobotSimulation.rotate(e2, self.lengths[2], r[2])
+        e4 = RobotSimulation.rotate(e3, self.lengths[3], r[3])
 
         return np.array([e1, e2, e3, e4]).transpose()
 
-    def __init__(self, root : tk.Tk):
+    def __init__(self, root : tk.Tk, lengths : list[int] = [160, 120, 100, 100]):
         self.root = root
-        self.root.title("Robot Simulator 4 DOF")
+        self.n = len(lengths)
+        self.lengths = lengths
+        self.root.title(f"Robot Simulator {self.n} DOF")
 
         # Setup Canvas
         self.canvas = tk.Canvas(root, width=800, height=300, bg="black")
         self.canvas.pack(fill="both", expand=True)
 
         # Initial Actuator Angles
-        self.t = np.array([45.0,-45.0,-45.0,45.0])
+        self.t = np.zeros(self.n)
         self.dt = 0.5 # Jacobian Estimator Delta Theta
+        self.R = np.array([[1,0,0,0],[1,1,0,0],[1,1,1,0],[1,1,1,1]]) # Rotational Sum Matrix
 
         # Initial Actuator Endpoint/Setpoint Positions
-        self.e = RobotSimulation.fk2(self.t)
-        self.g = self.e[:,3]
-        self.alpha = 0.1
+        self.e0 = np.array([300, 300, 0]) # Origin Position
+        self.e = self.fk2(self.t)
+        self.g = self.e[:,self.n - 1]
+        self.alpha = 0.5
 
         # Actuators
         self.a1 = self.canvas.create_line(0,0,0,0,width=6,fill="red")
@@ -78,30 +79,30 @@ class RobotSimulation:
     
     def animate(self):
         # Inverse Kinematics
-        J = RobotSimulation.jacobian(self.e, self.t, dt=self.dt)
+        J = self.jacobian(self.e, self.t, dt=self.dt)
         J_inv = np.linalg.pinv(J)
         de = self.g - self.e[:,3]
         dt = J_inv @ de
         self.t = self.t + self.alpha * dt
-        self.e = RobotSimulation.fk2(self.t)
+        self.e = self.fk2(self.t)
 
-        self.canvas.coords(self.a1, RobotSimulation.e0[0],  RobotSimulation.e0[1],  self.e[0,0],    self.e[1,0])
-        self.canvas.coords(self.a2, self.e[0,0],            self.e[1,0],            self.e[0,1],    self.e[1,1])
-        self.canvas.coords(self.a3, self.e[0,1],            self.e[1,1],            self.e[0,2],    self.e[1,2])
-        self.canvas.coords(self.a4, self.e[0,2],            self.e[1,2],            self.e[0,3],    self.e[1,3])
+        self.canvas.coords(self.a1, self.e0[0],     self.e0[1],     self.e[0,0],    self.e[1,0])
+        self.canvas.coords(self.a2, self.e[0,0],    self.e[1,0],    self.e[0,1],    self.e[1,1])
+        self.canvas.coords(self.a3, self.e[0,1],    self.e[1,1],    self.e[0,2],    self.e[1,2])
+        self.canvas.coords(self.a4, self.e[0,2],    self.e[1,2],    self.e[0,3],    self.e[1,3])
         self.root.after(16, self.animate)
 
     def t0_update(self, val):
         self.t = np.array([int(val), 0, 0, 0]) + np.array([[0,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]]) @ self.t
-        self.e = RobotSimulation.fk2(self.t)
+        self.e = self.fk2(self.t)
 
     def t1_update(self, val):
         self.t = np.array([0, int(val), 0, 0]) + np.array([[1,0,0,0], [0,0,0,0], [0,0,1,0], [0,0,0,1]]) @ self.t
-        self.e = RobotSimulation.fk2(self.t)
+        self.e = self.fk2(self.t)
 
     def t2_update(self, val):
         self.t = np.array([0, 0, int(val), 0]) + np.array([[1,0,0,0], [0,1,0,0], [0,0,0,0], [0,0,0,1]]) @ self.t
-        self.e = RobotSimulation.fk2(self.t)
+        self.e = self.fk2(self.t)
 
     def dt_update(self, val):
         self.dt = float(val)
@@ -109,8 +110,8 @@ class RobotSimulation:
     def alpha_update(self, val):
         self.alpha = float(val)
 
-    def jacobian(e, t, dt=0.5):
-        de = RobotSimulation.fk2(t + np.ones(4) * dt) - e
+    def jacobian(self, e, t, dt=0.5):
+        de = self.fk2(t + np.ones(self.n) * dt) - e
         return de / dt
 
     def on_click(self, event):
