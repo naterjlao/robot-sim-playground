@@ -41,7 +41,7 @@ class RobotSimulation:
 
         # Initial Actuator Endpoint/Setpoint Positions
         self.e = RobotSimulation.fk2(self.t)
-        self.g = self.e[:,2]
+        self.g = self.e[:,3]
 
         # Actuators
         self.a1 = self.canvas.create_line(0,0,0,0,width=6,fill="red")
@@ -103,17 +103,7 @@ class RobotSimulation:
 
     def on_click(self, event):
         self.g = np.array([int(event.x), int(event.y), 0])
-        print(f"{self.g=}")
-        # J = RobotSimulation.jacobian(self.e, self.t)
-        # J_inv = np.linalg.pinv(J)
-
-        # setpoint = np.array([int(event.x), int(event.y), 0])
-
-        # dt = J_inv @ (self.e[:,2] - setpoint)
-        # print(dt)
-        # self.t += dt.astype(int)
-        # self.e = RobotSimulation.fk2(self.t)
-
+        print(f"setpoint={self.g}")
 
 if __name__ == "__main__":
     root = tk.Tk()
