@@ -19,12 +19,13 @@ class RobotSimulation:
         ) -> np.ndarray: # endpoint position matrix (n=3, m=3)
 
         r = self.R @ t
-        e1 = RobotSimulation.rotate(self.e0, self.lengths[0], r[0])
-        e2 = RobotSimulation.rotate(e1, self.lengths[1], r[1])
-        e3 = RobotSimulation.rotate(e2, self.lengths[2], r[2])
-        e4 = RobotSimulation.rotate(e3, self.lengths[3], r[3])
+        p = self.e0
+        e = []
+        for idx in range(self.n):
+            p = RobotSimulation.rotate(p, self.lengths[idx], r[idx])
+            e += [p]
 
-        return np.array([e1, e2, e3, e4]).transpose()
+        return np.array(e).transpose()
 
     def __init__(self, root : tk.Tk, lengths : list[int] = [160, 120, 100, 100]):
         self.root = root
@@ -38,33 +39,32 @@ class RobotSimulation:
 
         # Initial Actuator Angles
         self.t = np.zeros(self.n)
-        self.dt = 0.5 # Jacobian Estimator Delta Theta
-        self.R = np.array([[1,0,0,0],[1,1,0,0],[1,1,1,0],[1,1,1,1]]) # Rotational Sum Matrix
+        self.dt = 0.5                   # Jacobian Estimator Delta Theta
+        self.R = np.tri(self.n, self.n) # Rotational Sum Matrix
 
         # Initial Actuator Endpoint/Setpoint Positions
         self.e0 = np.array([300, 300, 0]) # Origin Position
         self.e = self.fk2(self.t)
         self.g = self.e[:,self.n - 1]
         self.alpha = 0.5
+        self.canvas.bind("<Motion>", self.g_update)
 
         # Actuators
-        self.a1 = self.canvas.create_line(0,0,0,0,width=6,fill="red")
-        self.a2 = self.canvas.create_line(0,0,0,0,width=6,fill="green")
-        self.a3 = self.canvas.create_line(0,0,0,0,width=6,fill="blue")
-        self.a4 = self.canvas.create_line(0,0,0,0,width=6,fill="orange")
-
-        self.canvas.bind("<Motion>", self.on_click)
+        COLOR_PATTERN = ["red", "green", "blue", "orange"]
+        self.a = []
+        for idx in range(self.n):
+            self.a += [self.canvas.create_line(0,0,0,0, width=6, fill=COLOR_PATTERN[idx % len(COLOR_PATTERN)])]
 
         # Actuators Angle Sliders
         def init_slider(left, right, tickInterval, resolution, initial, command):
             s = tk.Scale(
                 root,
-                from_=left,              # Minimum value (note the trailing underscore)
-                to=right,               # Maximum value
-                orient=tk.HORIZONTAL, # tk.HORIZONTAL or tk.VERTICAL
-                length=200,           # Width/height in pixels
-                tickinterval=tickInterval,      # Displays numbers along the track
-                resolution=resolution,         # Step increment (use 0.1 for decimals)
+                from_=left,                 # Minimum value (note the trailing underscore)
+                to=right,                   # Maximum value
+                orient=tk.HORIZONTAL,       # tk.HORIZONTAL or tk.VERTICAL
+                length=200,                 # Width/height in pixels
+                tickinterval=tickInterval,  # Displays numbers along the track
+                resolution=resolution,      # Step increment (use 0.1 for decimals)
                 command=command
             )
             s.set(initial)            # Set initial starting position
@@ -86,23 +86,27 @@ class RobotSimulation:
         self.t = self.t + self.alpha * dt
         self.e = self.fk2(self.t)
 
-        self.canvas.coords(self.a1, self.e0[0],     self.e0[1],     self.e[0,0],    self.e[1,0])
-        self.canvas.coords(self.a2, self.e[0,0],    self.e[1,0],    self.e[0,1],    self.e[1,1])
-        self.canvas.coords(self.a3, self.e[0,1],    self.e[1,1],    self.e[0,2],    self.e[1,2])
-        self.canvas.coords(self.a4, self.e[0,2],    self.e[1,2],    self.e[0,3],    self.e[1,3])
+        # Update Actuator Positions
+        px = self.e0[0]
+        py = self.e0[1]
+        for idx in range(self.n):
+            self.canvas.coords(self.a[idx], px, py, self.e[0,idx], self.e[1,idx])
+            px = self.e[0,idx]
+            py = self.e[1,idx]
+
         self.root.after(16, self.animate)
 
-    def t0_update(self, val):
-        self.t = np.array([int(val), 0, 0, 0]) + np.array([[0,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]]) @ self.t
-        self.e = self.fk2(self.t)
+    # def t0_update(self, val):
+    #     self.t = np.array([int(val), 0, 0, 0]) + np.array([[0,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]]) @ self.t
+    #     self.e = self.fk2(self.t)
 
-    def t1_update(self, val):
-        self.t = np.array([0, int(val), 0, 0]) + np.array([[1,0,0,0], [0,0,0,0], [0,0,1,0], [0,0,0,1]]) @ self.t
-        self.e = self.fk2(self.t)
+    # def t1_update(self, val):
+    #     self.t = np.array([0, int(val), 0, 0]) + np.array([[1,0,0,0], [0,0,0,0], [0,0,1,0], [0,0,0,1]]) @ self.t
+    #     self.e = self.fk2(self.t)
 
-    def t2_update(self, val):
-        self.t = np.array([0, 0, int(val), 0]) + np.array([[1,0,0,0], [0,1,0,0], [0,0,0,0], [0,0,0,1]]) @ self.t
-        self.e = self.fk2(self.t)
+    # def t2_update(self, val):
+    #     self.t = np.array([0, 0, int(val), 0]) + np.array([[1,0,0,0], [0,1,0,0], [0,0,0,0], [0,0,0,1]]) @ self.t
+    #     self.e = self.fk2(self.t)
 
     def dt_update(self, val):
         self.dt = float(val)
@@ -114,7 +118,7 @@ class RobotSimulation:
         de = self.fk2(t + np.ones(self.n) * dt) - e
         return de / dt
 
-    def on_click(self, event):
+    def g_update(self, event):
         self.g = np.array([int(event.x), int(event.y), 0])
 
 if __name__ == "__main__":
