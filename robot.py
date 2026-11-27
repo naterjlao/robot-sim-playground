@@ -36,9 +36,14 @@ class RobotSimulation:
         self.root.title(f"Robot Simulator {self.n} DOF")
         self.canvas = tk.Canvas(root, width=800, height=300, bg="black")
         self.canvas.pack(fill="both", expand=True)
+        self.info = []
+        for _ in range(self.n):
+            entry = tk.Entry(self.root, width=30)
+            entry.pack(pady=5)
+            self.info.append(entry)
 
         # Initial Actuator Angles
-        self.t = np.zeros(self.n)
+        self.t = np.ones(self.n) * 10
         self.dt = 0.5                   # Initial Jacobian Estimator Theta Delta
         self.R = np.tri(self.n, self.n) # Rotational Sum Matrix used for forward_kinematics().
 
@@ -47,7 +52,7 @@ class RobotSimulation:
         self.e = self.forward_kinematics(self.t)    # Calculate initial actuator pose.
         self.g = self.e[:,self.n - 1]               # Set initial end effector setpoint.
         self.alpha = 0.5                            # Initial alpha constant for inverse_kinematics().
-        self.canvas.bind("<Motion>", self.g_update) # Interactive GUI - track mouse positions.
+        self.canvas.bind("<Button-1>", self.g_update) # Interactive GUI - track mouse positions.
 
         # Create Actuator Lines
         COLOR_PATTERN = ["red", "green", "blue", "orange"]
@@ -75,7 +80,14 @@ class RobotSimulation:
         init_slider(0.5, 90, 10, 0.5, self.dt, self.dt_update)
         init_slider(0.001, 3, 1, 0.001, self.alpha, self.alpha_update)
 
+        self.update_info()
         self.animate()
+
+    def update_info(self):
+        for idx in range(self.n):
+            self.info[idx].delete(0, tk.END)
+            self.info[idx].insert(0, f"{self.t[idx]:.2f}")
+        self.root.after(250, self.update_info)
     
     def animate(self):
         # Inverse Kinematics TODO move to function
