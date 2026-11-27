@@ -81,7 +81,7 @@ class RobotSimulation:
         # Inverse Kinematics
         J = self.jacobian(self.e, self.t, dt=self.dt)
         J_inv = np.linalg.pinv(J)
-        de = self.g - self.e[:,3]
+        de = self.g - self.e[:,self.n - 1]
         dt = J_inv @ de
         self.t = self.t + self.alpha * dt
         self.e = self.fk2(self.t)
@@ -123,5 +123,12 @@ class RobotSimulation:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = RobotSimulation(root)
+    # app = RobotSimulation(root, lengths=[160, 120, 100, 100, 100, 100, 50])
+    # app = RobotSimulation(root, lengths=[40]*20)
+    # lengths = []
+    # for idx in range(10):
+    #     lengths = [(idx + 1) * 40] + lengths
+    lengths = [(idx + 1) * 25 * (1 + math.sqrt(5)) / 2  for idx in range(5)][::-1]
+    print(lengths)
+    app = RobotSimulation(root, lengths=lengths)
     root.mainloop()
